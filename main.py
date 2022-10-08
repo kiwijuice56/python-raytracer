@@ -1,4 +1,5 @@
 import math
+import time
 from PIL import Image, ImageDraw
 
 
@@ -219,8 +220,11 @@ class Sphere(SpatialObject):
 
 
 def main():
+    width = 800
+    height = 600
+
     # Initializing the scene
-    cam = Camera(canvas_size=[300, 200], origin=[0, 1, 0])
+    cam = Camera(canvas_size=[width, height], origin=[0, 1, 0])
     a = Sphere(origin=[0, 4, 32], radius=8, reflectivity=0.6, specular=2, color=(0.858, 0.858, 0.858))
     b = Sphere(origin=[-12, 2, 24], radius=4, reflectivity=0.1, color=(0.501, 0.501, 0.501))
     c = Sphere(origin=[-18, 8, 18], radius=4, specular=1.0, color=(0.12, 0.12, 0.12))
@@ -230,11 +234,16 @@ def main():
 
     light1 = Light(origin=[24, -8, 8], power=1.0, color=(16.0, 16.0, 16.0), max_distance=50)
     light2 = Light(origin=[0, -16, 32], power=1.0, color=(2.0, 0.8, 0.8), max_distance=64)
+    light3 = Light(origin=[-16, -22, 24], power=1.0, color=(1.0, 0.8, 2.0), max_distance=64)
 
     # Set up PIL to render the image
     im = Image.new(mode="RGB", size=cam.canvas_size)
     draw = ImageDraw.Draw(im)
-    cam.render(draw, [a, b, c, d, f, e], [light1, light2])
+
+    start = time.time()
+    cam.render(draw, [a, b, c, d, f, e], [light1, light2, light3])
+    print("Rendering complete: %f seconds" % (time.time() - start))
+
     with open("render.png", "wb") as f:
         im.save(f)
 
