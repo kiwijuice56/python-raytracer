@@ -1,6 +1,8 @@
 import math
+from random import random
 import time
 from PIL import Image, ImageDraw
+import os
 
 
 # Static method container for vector methods (represented by lists/tuples)
@@ -41,7 +43,7 @@ class SpatialObject:
     # rotation: currently unused
     # specular: [0, inf], the amount that the dot product between light direction and surface normal affects brightness
     # reflectivity: [0, 1], the amount of light reflected at each collision
-    def __init__(self, origin=None, rotation=None, color=(0, 0, 0), specular=1.5, reflectivity=0.8):
+    def __init__(self, origin=None, rotation=None, color=(0, 0, 0), specular=1.5, reflectivity=0.8, roughness=0.125):
         if origin is None:
             origin = 0, 0, 0
         if rotation is None:
@@ -51,6 +53,7 @@ class SpatialObject:
         self.color = color
         self.reflectivity = reflectivity
         self.specular = specular
+        self.roughness = roughness
 
     # Returns a tuple of (intersection point, ray bounce direction) if the ray intersects this object, else None
     def get_intersection(self, ray_dir, ray_origin):
@@ -66,14 +69,16 @@ class Camera(SpatialObject):
     # canvas_offset: how far the viewing plane is from the camera origin
     # canvas_size: a tuple of (width, height) in pixels of the screen
     # fov: field of view in radians
-    def __init__(self, canvas_offset=0.5, canvas_size=None, fov=2.0944, *args, **kw):
+    def __init__(self, canvas_offset=0.5, canvas_size=None, max_bounces=5, shadow_resolution=16, fov=2.0944,
+                 *args, **kw):
         super().__init__(*args, **kw)
         if canvas_size is None:
             canvas_size = 300, 200
         self.canvas_offset = canvas_offset
         self.canvas_size = canvas_size
         self.fov = fov
-        self.max_bounces = 5
+        self.max_bounces = max_bounces
+        self.shadow_resolution = shadow_resolution
 
     # Renders the scene composed of the objects and lights variables onto the canvas image
     # canvas: a PIL Image to draw to
@@ -83,7 +88,14 @@ class Camera(SpatialObject):
         view_plane_width = 2 * math.tan(self.fov / 2) * self.canvas_offset
         view_plane_height = view_plane_width * self.canvas_size[1] / self.canvas_size[0]
 
+        # Used to measure the rendering progress
+        start = time.time()
+        update_freq = int(self.canvas_size[1] / 25)
         for row in range(self.canvas_size[1]):
+            if row % update_freq == 0:
+                os.system('cls||clear')
+                progress = int(24 * (row / self.canvas_size[1]))
+                print("Progress: [%-24s] %.3f seconds elapsed" % ("█" * progress, time.time() - start))
             for col in range(self.canvas_size[0]):
                 # Get the point that the ray intersects with the viewing plane
                 px_x = (col / self.canvas_size[0]) * view_plane_width - (view_plane_width / 2)
@@ -103,7 +115,7 @@ class Camera(SpatialObject):
                         if intersect is not None:
                             intersections.append(intersect)
                     if len(intersections) == 0:
-                        continue
+                        break
 
                     # Use only the closest intersection to the ray origin point
                     near_intersect = min(intersections, key=lambda z: Vector.length(Vector.sub(ray_origin, z[0])))
@@ -111,19 +123,24 @@ class Camera(SpatialObject):
                     point_color = 0, 0, 0
                     for light in lights:
                         to_light = Vector.sub(light.origin, near_intersect[0])
+                        light_dir = Vector.normalize(to_light)
 
                         # Skip lights that are too far
                         if Vector.length(to_light) > light.max_distance:
                             continue
 
                         # Go through all other objects and check if there is a clear path from the light to the point
-                        blocked = False
-                        for shadow_obj in objects:
-                            if shadow_obj.get_intersection(Vector.normalize(to_light), near_intersect[0]) is not None:
-                                blocked = True
-                                break
-                        if blocked:
-                            continue
+                        blocked_cnt = 0
+                        for sample in range(self.shadow_resolution):
+                            for shadow_obj in objects:
+                                rand_vec = [random() * near_intersect[2].roughness - near_intersect[2].roughness / 2
+                                            for _ in range(3)]
+                                rand_dir = Vector.normalize(Vector.add(light_dir, rand_vec))
+                                if shadow_obj.get_intersection(rand_dir, near_intersect[0]) is not None:
+                                    blocked_cnt += 1
+                                    break
+
+                        shadow_intensity = 1 - (blocked_cnt / self.shadow_resolution)
 
                         # Get the dot product of the surface normal and the light (more similar = stronger)
                         normal = near_intersect[2].get_normal(near_intersect[0])
@@ -133,8 +150,8 @@ class Camera(SpatialObject):
                         # Get the distance from the light (closer = stronger)
                         distance_ratio = Vector.length(to_light) / light.max_distance
 
-                        # Calculate the strength from distance, similarity, and the light's current energy
-                        strength = ((1 - distance_ratio) ** light.power) * similarity * energy
+                        # Calculate the strength from distance, shadow, similarity, and the light's current energy
+                        strength = ((1 - distance_ratio) ** light.power) * similarity * energy * shadow_intensity
 
                         point_color = Vector.add(point_color, Vector.multiply(near_intersect[2].color,
                                                                               Vector.scale(light.color, strength)))
@@ -152,6 +169,8 @@ class Camera(SpatialObject):
                 b = min(255, int(255 * sum(c[2] for c in reflected_colors) / self.max_bounces))
 
                 canvas.point((col, row), (r, g, b))
+        os.system('cls||clear')
+        print("Rendering complete: %.3f seconds" % (time.time() - start))
 
 
 # Stores information of a light for a scene
@@ -222,27 +241,26 @@ def main():
     height = 600
 
     # Initializing the scene
-    cam = Camera(canvas_size=(width, height), origin=(0, 5, 0))
-    a = Sphere(origin=(0, 4, 32), radius=8, reflectivity=0.6, specular=2, color=(0.858, 0.858, 0.858))
-    b = Sphere(origin=(-12, 2, 24), radius=4, reflectivity=0.1, color=(0.501, 0.501, 0.501))
-    c = Sphere(origin=(-18, 8, 18), radius=4, specular=1.0, color=(0.12, 0.12, 0.12))
-    d = Sphere(origin=(19, -4, 22), radius=5, specular=1.2, reflectivity=2, color=(0.1, 0.1, 0.1))
-    e = Sphere(origin=(16, 8, 18), radius=5, specular=1.0, reflectivity=1.0, color=(1.0, 1.0, 1.0))
+    cam = Camera(canvas_size=(width, height), origin=(0, 5, 0), shadow_resolution=64, max_bounces=5)
+
+    a = Sphere(origin=(0, 4, 32), roughness=0.15, radius=8, reflectivity=0.6, specular=2, color=(0.858, 0.858, 0.858))
+    b = Sphere(origin=(-12, 2, 24), roughness=0.85, radius=4, specular=4.0, reflectivity=0.1, color=(0.5, 0.5, 0.5))
+    c = Sphere(origin=(-18, 8, 18), roughness=0.15, radius=4, specular=2.0, reflectivity=0.2, color=(0.12, 0.12, 0.12))
+    d = Sphere(origin=(19, -4, 22), roughness=0.25, radius=5, specular=1.6, reflectivity=0.2, color=(0.1, 0.1, 0.1))
+    e = Sphere(origin=(16, 8, 18), roughness=0.01, radius=5, specular=1.0, reflectivity=1.0, color=(1.0, 1.0, 1.0))
     f = Floor(origin=(0, 16, 0), reflectivity=0.32, color=(0.5, 0.5, 0.5))
     g = Sphere(origin=(4, 14, 24), radius=2, reflectivity=0.6, specular=2, color=(1.0, 1.0, 1.0))
     h = Sphere(origin=(-8, 14, 16), radius=2, reflectivity=0.6, specular=2, color=(1.0, 1.0, 1.0))
 
-    light1 = Light(origin=(24, -8, 8), power=1.0, color=(16.0, 16.0, 16.0), max_distance=50)
-    light2 = Light(origin=(0, -16, 32), power=1.0, color=(2.0, 0.8, 0.8), max_distance=64)
-    light3 = Light(origin=(-16, -22, 24), power=1.0, color=(1.0, 0.8, 2.0), max_distance=64)
+    light1 = Light(origin=(24, -8, 8), power=0.5, color=(16.0, 16.0, 16.0), max_distance=50)
+    light2 = Light(origin=(0, -16, 32), power=0.5, color=(2.0, 0.8, 0.8), max_distance=64)
+    light3 = Light(origin=(-16, -22, 24), power=0.5, color=(1.0, 0.8, 2.0), max_distance=64)
 
     # Set up PIL to render the image
     im = Image.new(mode="RGB", size=cam.canvas_size)
     draw = ImageDraw.Draw(im)
 
-    start = time.time()
     cam.render(draw, (a, b, c, d, f, e, g, h), (light1, light2, light3))
-    print("Rendering complete: %f seconds" % (time.time() - start))
 
     with open("render.png", "wb") as f:
         im.save(f)

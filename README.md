@@ -4,6 +4,9 @@ planes, spheres, and lights.
 
 ![Example render](render.png)
 
+## Dependencies
+- Pillow is necessary to draw each pixel and save the image as a file. You can substitute this with another library that can draw pixel by pixel
+
 ## Attribution
 
 - [Kyle Halladay's sphere intersection explanation](http://kylehalladay.com/blog/tutorial/math/2013/12/24/Ray-Sphere-Intersection.html)
