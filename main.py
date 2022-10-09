@@ -222,24 +222,26 @@ def main():
     height = 600
 
     # Initializing the scene
-    cam = Camera(canvas_size=[width, height], origin=[0, 1, 0])
-    a = Sphere(origin=[0, 4, 32], radius=8, reflectivity=0.6, specular=2, color=(0.858, 0.858, 0.858))
-    b = Sphere(origin=[-12, 2, 24], radius=4, reflectivity=0.1, color=(0.501, 0.501, 0.501))
-    c = Sphere(origin=[-18, 8, 18], radius=4, specular=1.0, color=(0.12, 0.12, 0.12))
-    d = Sphere(origin=[19, -4, 22], radius=5, specular=1.2, reflectivity=2, color=(0.1, 0.1, 0.1))
-    e = Sphere(origin=[16, 8, 18], radius=5, specular=1.0, reflectivity=1.0, color=(1.0, 1.0, 1.0))
-    f = Floor(origin=[0, 16, 0], reflectivity=0.32, color=(0.5, 0.5, 0.5))
+    cam = Camera(canvas_size=(width, height), origin=(0, 5, 0))
+    a = Sphere(origin=(0, 4, 32), radius=8, reflectivity=0.6, specular=2, color=(0.858, 0.858, 0.858))
+    b = Sphere(origin=(-12, 2, 24), radius=4, reflectivity=0.1, color=(0.501, 0.501, 0.501))
+    c = Sphere(origin=(-18, 8, 18), radius=4, specular=1.0, color=(0.12, 0.12, 0.12))
+    d = Sphere(origin=(19, -4, 22), radius=5, specular=1.2, reflectivity=2, color=(0.1, 0.1, 0.1))
+    e = Sphere(origin=(16, 8, 18), radius=5, specular=1.0, reflectivity=1.0, color=(1.0, 1.0, 1.0))
+    f = Floor(origin=(0, 16, 0), reflectivity=0.32, color=(0.5, 0.5, 0.5))
+    g = Sphere(origin=(4, 14, 24), radius=2, reflectivity=0.6, specular=2, color=(1.0, 1.0, 1.0))
+    h = Sphere(origin=(-8, 14, 16), radius=2, reflectivity=0.6, specular=2, color=(1.0, 1.0, 1.0))
 
-    light1 = Light(origin=[24, -8, 8], power=1.0, color=(16.0, 16.0, 16.0), max_distance=50)
-    light2 = Light(origin=[0, -16, 32], power=1.0, color=(2.0, 0.8, 0.8), max_distance=64)
-    light3 = Light(origin=[-16, -22, 24], power=1.0, color=(1.0, 0.8, 2.0), max_distance=64)
+    light1 = Light(origin=(24, -8, 8), power=1.0, color=(16.0, 16.0, 16.0), max_distance=50)
+    light2 = Light(origin=(0, -16, 32), power=1.0, color=(2.0, 0.8, 0.8), max_distance=64)
+    light3 = Light(origin=(-16, -22, 24), power=1.0, color=(1.0, 0.8, 2.0), max_distance=64)
 
     # Set up PIL to render the image
     im = Image.new(mode="RGB", size=cam.canvas_size)
     draw = ImageDraw.Draw(im)
 
     start = time.time()
-    cam.render(draw, [a, b, c, d, f, e], [light1, light2, light3])
+    cam.render(draw, (a, b, c, d, f, e, g, h), (light1, light2, light3))
     print("Rendering complete: %f seconds" % (time.time() - start))
 
     with open("render.png", "wb") as f:
