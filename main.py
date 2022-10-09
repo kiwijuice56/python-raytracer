@@ -8,23 +8,23 @@ class Vector:
     @staticmethod
     def normalize(vec):
         length = Vector.length(vec)
-        return [component / length for component in vec]
+        return vec[0] / length, vec[1] / length, vec[2] / length
 
     @staticmethod
     def add(vec1, vec2):
-        return [vec1[i] + vec2[i] for i in range(3)]
+        return vec1[0] + vec2[0], vec1[1] + vec2[1], vec1[2] + vec2[2]
 
     @staticmethod
     def sub(vec1, vec2):
-        return [vec1[i] - vec2[i] for i in range(3)]
+        return vec1[0] - vec2[0], vec1[1] - vec2[1], vec1[2] - vec2[2]
 
     @staticmethod
     def multiply(vec1, vec2):
-        return [vec1[i] * vec2[i] for i in range(3)]
+        return vec1[0] * vec2[0], vec1[1] * vec2[1], vec1[2] * vec2[2]
 
     @staticmethod
     def scale(vec, x):
-        return [component * x for component in vec]
+        return vec[0] * x, vec[1] * x, vec[2] * x
 
     @staticmethod
     def length(vec):
@@ -43,9 +43,9 @@ class SpatialObject:
     # reflectivity: [0, 1], the amount of light reflected at each collision
     def __init__(self, origin=None, rotation=None, color=(0, 0, 0), specular=1.5, reflectivity=0.8):
         if origin is None:
-            origin = [0, 0, 0]
+            origin = 0, 0, 0
         if rotation is None:
-            rotation = [0, 0, 0]
+            rotation = 0, 0, 0
         self.origin = origin
         self.rotation = rotation
         self.color = color
@@ -69,7 +69,7 @@ class Camera(SpatialObject):
     def __init__(self, canvas_offset=0.5, canvas_size=None, fov=2.0944, *args, **kw):
         super().__init__(*args, **kw)
         if canvas_size is None:
-            canvas_size = (300, 200)
+            canvas_size = 300, 200
         self.canvas_offset = canvas_offset
         self.canvas_size = canvas_size
         self.fov = fov
@@ -88,10 +88,9 @@ class Camera(SpatialObject):
                 # Get the point that the ray intersects with the viewing plane
                 px_x = (col / self.canvas_size[0]) * view_plane_width - (view_plane_width / 2)
                 px_y = (row / self.canvas_size[1]) * view_plane_height - (view_plane_height / 2)
-                px_z = self.canvas_offset
 
                 ray_origin = self.origin
-                ray_dir = Vector.normalize([px_x, px_y, px_z])
+                ray_dir = Vector.normalize((px_x, px_y, self.canvas_offset))
 
                 # Keep track of the colors that the traced ray intersects with, along with the energy of the ray
                 reflected_colors = []
@@ -102,14 +101,14 @@ class Camera(SpatialObject):
                     for spatial_obj in objects:
                         intersect = spatial_obj.get_intersection(ray_dir, ray_origin)
                         if intersect is not None:
-                            intersections.append(intersect + [spatial_obj])
+                            intersections.append(intersect)
                     if len(intersections) == 0:
                         continue
 
                     # Use only the closest intersection to the ray origin point
                     near_intersect = min(intersections, key=lambda z: Vector.length(Vector.sub(ray_origin, z[0])))
 
-                    point_color = [0, 0, 0]
+                    point_color = 0, 0, 0
                     for light in lights:
                         to_light = Vector.sub(light.origin, near_intersect[0])
 
@@ -172,15 +171,14 @@ class Floor(SpatialObject):
         dif_x = (dif_y / ray_dir[1]) * ray_dir[0]
         dif_z = (dif_y / ray_dir[1]) * ray_dir[2]
 
-        p1 = Vector.add(ray_origin, [dif_x, dif_y, dif_z])
+        p1 = Vector.add(ray_origin, (dif_x, dif_y, dif_z))
         # We never recalculate the normal because we assume this plane does not rotate
-        reflect_dir = Vector.sub(ray_dir, Vector.scale([0, -1, 0], Vector.dot(ray_dir, [0, -1, 0]) * 2))
+        reflect_dir = Vector.sub(ray_dir, Vector.scale((0, -1, 0), Vector.dot(ray_dir, (0, -1, 0)) * 2))
 
-        # Leave out reflection direction to make the floor look flat
-        return [p1, reflect_dir]
+        return p1, reflect_dir, self
 
     def get_normal(self, point):
-        return [0, -1, 0]
+        return 0, -1, 0
 
 
 class Sphere(SpatialObject):
@@ -199,7 +197,7 @@ class Sphere(SpatialObject):
             return None
 
         # Get the length of the side that creates a right triangle between a and b
-        c = (Vector.length(a) ** 2 - b ** 2) ** 0.5
+        c = (Vector.length(a) ** 2 - b * b) ** 0.5
 
         # If larger than the sphere, the ray never intersected with the sphere
         if c > self.radius:
@@ -213,7 +211,7 @@ class Sphere(SpatialObject):
         normal = self.get_normal(p)
         reflect_dir = Vector.sub(ray_dir, Vector.scale(normal, Vector.dot(ray_dir, normal) * 2))
 
-        return [p, reflect_dir]
+        return p, reflect_dir, self
 
     def get_normal(self, point):
         return Vector.normalize(Vector.sub(point, self.origin))
